@@ -6,47 +6,6 @@ function json(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
-function getBearerToken(req) {
-  const h = req.headers?.authorization || req.headers?.Authorization;
-  if (!h || typeof h !== "string") return null;
-  const [scheme, token] = h.split(" ");
-  if (scheme !== "Bearer" || !token) return null;
-  return token.trim();
-}
-
-function parseBasicAuth(req) {
-  const h = req.headers?.authorization || req.headers?.Authorization;
-  if (!h || typeof h !== "string") return null;
-  const [scheme, encoded] = h.split(" ");
-  if (scheme !== "Basic" || !encoded) return null;
-  try {
-    const decoded = Buffer.from(encoded, "base64").toString("utf8");
-    const idx = decoded.indexOf(":");
-    if (idx === -1) return null;
-    return {
-      user: decoded.slice(0, idx),
-      pass: decoded.slice(idx + 1),
-    };
-  } catch {
-    return null;
-  }
-}
-
-function isAdmin(req) {
-  // Option A: Bearer token
-  const expectedToken = process.env.ADMIN_TOKEN;
-  const gotToken = getBearerToken(req);
-  if (expectedToken && gotToken && gotToken === expectedToken) return true;
-
-  // Option B: Basic auth (recommended for dashboard)
-  const expectedUser = process.env.DASHBOARD_USER;
-  const expectedPass = process.env.DASHBOARD_PASS;
-  if (!expectedUser || !expectedPass) return false;
-  const creds = parseBasicAuth(req);
-  if (!creds) return false;
-  return creds.user === expectedUser && creds.pass === expectedPass;
-}
-
 async function ensureSchema() {
   await sql`
     create table if not exists contact_messages (
@@ -157,25 +116,9 @@ export default async function handler(req, res) {
       });
     }
 
-    if (req.method === "GET") {
-      if (!isAdmin(req)) {
-        return json(res, 401, { error: "unauthorized" });
-      }
-
-      await ensureSchema();
-      const result = await sql`
-        select id, created_at, name, email, message
-        from contact_messages
-        order by created_at desc
-        limit 100;
-      `;
-
-      return json(res, 200, { ok: true, messages: result.rows || [] });
-    }
-
     return json(res, 405, { error: "method_not_allowed" });
   } catch (err) {
-    // Surface errors in Vercel function logs (Dashboard → Logs)
+    // Surface errors in Vercel function logs
     console.error("/api/messages error", err);
     return json(res, 500, {
       error: "internal_error",
