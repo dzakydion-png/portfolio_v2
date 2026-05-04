@@ -1,43 +1,53 @@
 function unauthorized(res) {
-  res.setHeader("WWW-Authenticate", 'Basic realm="Dashboard"');
-  return res.status(401).send("Authentication required.");
+  res.statusCode = 401;
+  res.setHeader("WWW-Authenticate", 'Basic realm="Admin Dashboard"');
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.end("Unauthorized");
 }
 
-function parseBasicAuth(header) {
-  if (!header || typeof header !== "string") return null;
-  const [scheme, value] = header.split(" ");
-  if (scheme !== "Basic" || !value) return null;
+function parseBasicAuth(req) {
+  const h = req.headers?.authorization || req.headers?.Authorization;
+  if (!h || typeof h !== "string") return null;
+  const [scheme, encoded] = h.split(" ");
+  if (scheme !== "Basic" || !encoded) return null;
   try {
-    const decoded = Buffer.from(value, "base64").toString("utf8");
+    const decoded = Buffer.from(encoded, "base64").toString("utf8");
     const idx = decoded.indexOf(":");
     if (idx === -1) return null;
-    return { user: decoded.slice(0, idx), pass: decoded.slice(idx + 1) };
+    return {
+      user: decoded.slice(0, idx),
+      pass: decoded.slice(idx + 1),
+    };
   } catch {
     return null;
   }
 }
 
-export default async function handler(req, res) {
-  const expectedUser = process.env.DASHBOARD_USER || "";
-  const expectedPass = process.env.DASHBOARD_PASS || "";
+function isAllowed(req) {
+  const expectedUser = process.env.DASHBOARD_USER;
+  const expectedPass = process.env.DASHBOARD_PASS;
+  if (!expectedUser || !expectedPass) return false;
 
-  if (!expectedPass) {
-    return res
-      .status(500)
-      .send("Dashboard is not configured. Set DASHBOARD_PASS in Vercel env vars.");
-  }
+  const creds = parseBasicAuth(req);
+  if (!creds) return false;
+  return creds.user === expectedUser && creds.pass === expectedPass;
+}
 
-  const auth = parseBasicAuth(req.headers.authorization);
-  if (!auth) return unauthorized(res);
-
-  const userOk = expectedUser ? auth.user === expectedUser : true;
-  const passOk = auth.pass === expectedPass;
-
-  if (!userOk || !passOk) return unauthorized(res);
-
-  // Minimal dashboard: messages are sent to email (no server storage).
+function html(res, body) {
+  res.statusCode = 200;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  return res.status(200).send(`<!DOCTYPE html>
+  res.setHeader("Cache-Control", "no-store");
+  res.end(body);
+}
+
+export default async function handler(req, res) {
+  if (!isAllowed(req)) return unauthorized(res);
+
+  // Served via rewrite at /dashboard, but backed by /api/dashboard.
+  // Use absolute paths for assets.
+  return html(
+    res,
+    `<!DOCTYPE html>
 <html lang="id" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
@@ -47,6 +57,7 @@ export default async function handler(req, res) {
     <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg" />
     <title>Messages Dashboard</title>
   </head>
+
   <body class="body-wrap">
     <div class="content">
       <section class="contact">
@@ -54,21 +65,26 @@ export default async function handler(req, res) {
           <h5>— dashboard</h5>
           <h2>Messages</h2>
         </div>
+
         <div class="container">
-          <div class="sub">
-            Messages are delivered to your email. This project does not store messages on a server.
-          </div>
-          <p><a href="/">Back to home</a></p>
-          <p>
-            Tip: check your inbox for new messages sent via the contact form.
-          </p>
+          <div class="sub">Private dashboard (Basic Auth protected).</div>
+
+          <button type="button" id="refresh">Refresh</button>
+          <p id="status" aria-live="polite"></p>
+
+          <p id="empty" style="display: none">No messages.</p>
+          <div id="messages"></div>
         </div>
       </section>
+
       <footer class="footer">
         <hr />
         <div class="footer-copy">&copy; Dzaky Dion Haidar 2026</div>
       </footer>
     </div>
+
+    <script src="/assets/js/dashboard.js?v=2"></script>
   </body>
-</html>`);
+</html>`
+  );
 }
