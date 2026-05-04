@@ -97,7 +97,13 @@
 
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data?.error || "Failed to send message");
+          const msg =
+            (data && typeof data === "object" && "message" in data && data.message) ||
+            (data && typeof data === "object" && "error" in data && data.error) ||
+            "Failed to send message";
+          const hint =
+            data && typeof data === "object" && "hint" in data ? String(data.hint || "") : "";
+          throw new Error(hint ? `${msg} (${hint})` : String(msg));
         }
 
         contactForm.reset();

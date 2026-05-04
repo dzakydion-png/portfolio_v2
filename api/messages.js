@@ -99,10 +99,30 @@ function normalizeText(value, maxLen) {
   return s.length > maxLen ? s.slice(0, maxLen) : s;
 }
 
+function hasPostgresConfig() {
+  // Vercel Postgres typically injects these when the DB is attached to the project.
+  // @vercel/postgres uses a connection string env var under the hood.
+  return Boolean(
+    process.env.POSTGRES_URL ||
+      process.env.POSTGRES_URL_NON_POOLING ||
+      process.env.POSTGRES_PRISMA_URL
+  );
+}
+
 export default async function handler(req, res) {
   try {
     // Always allow same-origin usage
     res.setHeader("Cache-Control", "no-store");
+
+    if (!hasPostgresConfig()) {
+      return json(res, 500, {
+        error: "db_not_configured",
+        message:
+          "Database is not configured. Attach a Vercel Postgres database to this project.",
+        hint:
+          "Vercel → Storage → Postgres → Create/Attach (adds POSTGRES_* env vars automatically).",
+      });
+    }
 
     if (req.method === "POST") {
       await ensureSchema();
@@ -155,6 +175,8 @@ export default async function handler(req, res) {
 
     return json(res, 405, { error: "method_not_allowed" });
   } catch (err) {
+    // Surface errors in Vercel function logs (Dashboard → Logs)
+    console.error("/api/messages error", err);
     return json(res, 500, {
       error: "internal_error",
       message: err instanceof Error ? err.message : String(err),
