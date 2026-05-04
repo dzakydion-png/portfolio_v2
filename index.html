@@ -391,7 +391,8 @@
               Punya pertanyaan, proposal, atau project? Feel free to reach out
               lewat form ini — atau langsung chat via email/WhatsApp.
             </div>
-            <form id="contact-form" action="#" method="post" novalidate>
+            <form class="contact-form" name="contact" method="POST">
+              <input type="hidden" name="form-name" value="contact" />
               <div class="input-row">
                 <div class="side"
                   ><label for="name">Your Name</label
@@ -423,8 +424,7 @@
                   required=""
                 ></textarea>
               </div>
-              <button type="submit">Send Message.</button>
-              <p id="contact-status" aria-live="polite"></p>
+              <button type="submit">Send Message</button>
             </form>
           </div>
         </section>

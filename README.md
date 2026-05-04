@@ -41,22 +41,3 @@ npx serve . -l 8000
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-## Deploy (Vercel + DB)
-
-This repo is deployed as a static site with a Vercel Serverless Function:
-- `POST /api/messages` — save contact messages to the database
-- `GET /api/messages` — list latest messages (requires admin access)
-
-Note: when running locally with `python -m http.server`, the `/api/*` routes do
-not exist, so the contact form won't work. To test locally with APIs, use
-`vercel dev`.
-
-### 1) Create a Postgres database
-
-In Vercel:
-- Storage → Create → Postgres
-- Attach it to this project
-
-Vercel will add the required `POSTGRES_*` environment variables automatically.
-
