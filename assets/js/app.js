@@ -1,169 +1,113 @@
-//Getting dom elements
-let mouseCursor = document.querySelector(".cursor-effect");
-let ctaLinks = document.querySelectorAll(
-  ".about-content a, .footer-links a, .more-about a"
-);
-let projectLinks = document.querySelectorAll(".project-box__link a ion-icon");
-
-//  Mouse effect
-if (mouseCursor) {
-  window.addEventListener("mousemove", cursor);
-
-  function cursor(e) {
-    mouseCursor.style.top = e.pageY + "px";
-    mouseCursor.style.left = e.pageX + "px";
-  }
-
-  ctaLinks.forEach((link) => {
-    link.addEventListener("mouseover", () => {
-      mouseCursor.classList.add("link-grow");
+(() => {
+  // Custom mouse cursor
+  const mouseCursor = document.querySelector(".cursor-effect");
+  if (mouseCursor) {
+    window.addEventListener("mousemove", (e) => {
+      mouseCursor.style.top = e.pageY + "px";
+      mouseCursor.style.left = e.pageX + "px";
     });
-    let trans = () => {
-      mouseCursor.classList.remove("link-grow");
-    });
-  });
 
-  projectLinks.forEach((link) => {
+    const hoverTargets = document.querySelectorAll(
+      ".about-content a, .footer-links a, .more-about a, .project-box__link a"
+    );
 
-    // Contact form (Vercel serverless + DB)
-    const contactForm = document.getElementById("contact-form");
-    if (contactForm) {
-      const statusEl = document.getElementById("contact-status");
-
-      contactForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-
-        const formData = new FormData(contactForm);
-        const name = String(formData.get("name") || "").trim();
-        const email = String(formData.get("email") || "").trim();
-        const message = String(formData.get("message") || "").trim();
-
-        if (!name || !email || !message) {
-          if (statusEl) statusEl.textContent = "Please fill out all fields.";
-          return;
-        }
-
-        if (statusEl) statusEl.textContent = "Sending…";
-
-        try {
-          const res = await fetch("/api/messages", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ name, email, message }),
-          });
-
-          if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            throw new Error(data?.error || "Failed to send message");
-          }
-
-          contactForm.reset();
-          if (statusEl) statusEl.textContent = "Message sent. Thank you!";
-        } catch (err) {
-          if (statusEl) {
-            statusEl.textContent =
-              err instanceof Error ? err.message : "Failed to send message";
-          }
-        }
+    hoverTargets.forEach((el) => {
+      el.addEventListener("mouseenter", () => {
+        mouseCursor.classList.add("link-grow");
       });
-    }
-    if (this.checked) {
-      trans();
-      document.documentElement.setAttribute("data-theme", "light");
-    } else {
-      trans();
-      document.documentElement.setAttribute("data-theme", "dark");
-    }
-  });
-}
-
-let trans = () => {
-  document.documentElement.classList.add("transition");
-  window.setTimeout(() => {
-    document.documentElement.classList.remove("transition");
-  }, 1200);
-};
-
-// Contact form (static-friendly)
-function getContactStorageKey() {
-  return "portfolio_v2_contact_messages";
-}
-
-function readContactMessages() {
-  try {
-    const raw = localStorage.getItem(getContactStorageKey());
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+      el.addEventListener("mouseleave", () => {
+        mouseCursor.classList.remove("link-grow");
+      });
+    });
   }
-}
 
-function writeContactMessages(messages) {
-  localStorage.setItem(getContactStorageKey(), JSON.stringify(messages));
-}
+  // Theme toggle (only exists on the home page)
+  const trans = () => {
+    document.documentElement.classList.add("transition");
+    window.setTimeout(() => {
+      document.documentElement.classList.remove("transition");
+    }, 1200);
+  };
 
-function createMessageId() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-  return String(Date.now()) + "_" + Math.random().toString(16).slice(2);
-}
+  const themeSwitch = document.getElementById("switch");
+  if (themeSwitch) {
+    themeSwitch.addEventListener("change", () => {
+      trans();
+      document.documentElement.setAttribute(
+        "data-theme",
+        themeSwitch.checked ? "light" : "dark"
+      );
+    });
+  }
 
-function buildMailtoUrl({ name, email, message }) {
-  const to = "dzakydionh@gmail.com";
-  const subject = `Portfolio message from ${name || "Visitor"}`;
-  const body = [
-    `Name: ${name || "-"}`,
-    `Email: ${email || "-"}`,
-    "",
-    message || "",
-  ].join("\n");
+  // Intro animation + fadeOut() (home page only)
+  const introEl = document.querySelector(".intro");
+  const hasGsap = typeof window.gsap !== "undefined";
 
-  const params = new URLSearchParams({
-    subject,
-    body,
-  });
-  return `mailto:${encodeURIComponent(to)}?${params.toString()}`;
-}
+  if (introEl && hasGsap) {
+    const tl = window.gsap.timeline({ defaults: { ease: "power2.out" } });
 
-const contactForm = document.getElementById("contact-form");
-if (contactForm) {
-  const statusEl = document.getElementById("contact-status");
+    // Bring in the intro text + button. The overlay remains until the user clicks EXPLORE.
+    tl.to(".text", { y: "0%", duration: 1, stagger: 0.25 });
+    tl.to(".intro-btn", { x: "75%", duration: 0.8 }, "-=0.6");
+  }
 
-  contactForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    const formData = new FormData(contactForm);
-    const name = String(formData.get("name") || "").trim();
-    const email = String(formData.get("email") || "").trim();
-    const message = String(formData.get("message") || "").trim();
-
-    if (!name || !email || !message) {
-      if (statusEl) statusEl.textContent = "Please fill out all fields.";
+  // Make sure the inline onclick="fadeOut()" works.
+  window.fadeOut = () => {
+    if (!introEl || !hasGsap) {
+      if (introEl) introEl.style.display = "none";
       return;
     }
 
-    const entry = {
-      id: createMessageId(),
-      createdAt: new Date().toISOString(),
-      name,
-      email,
-      message,
-    };
+    const tl = window.gsap.timeline({ defaults: { ease: "power2.inOut" } });
+    tl.to(".intro", { y: "-100%", duration: 0.8 });
+    tl.to(".slider", { y: "-100%", duration: 0.9 }, 0);
+    tl.to(".slider-2", { y: "-100%", duration: 0.9 }, 0.05);
+    tl.set(".intro", { display: "none" });
+  };
 
-    const existing = readContactMessages();
-    existing.unshift(entry);
-    writeContactMessages(existing);
+  // Contact form (Vercel serverless + DB)
+  const contactForm = document.getElementById("contact-form");
+  if (contactForm) {
+    const statusEl = document.getElementById("contact-status");
 
-    if (statusEl) {
-      statusEl.textContent = "Saved. Opening your email app…";
-    }
+    contactForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
 
-    // Open a prefilled email draft (works on static hosting)
-    window.location.href = buildMailtoUrl({ name, email, message });
+      const formData = new FormData(contactForm);
+      const name = String(formData.get("name") || "").trim();
+      const email = String(formData.get("email") || "").trim();
+      const message = String(formData.get("message") || "").trim();
 
-    contactForm.reset();
-  });
-}
+      if (!name || !email || !message) {
+        if (statusEl) statusEl.textContent = "Please fill out all fields.";
+        return;
+      }
+
+      if (statusEl) statusEl.textContent = "Sending…";
+
+      try {
+        const res = await fetch("/api/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ name, email, message }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error || "Failed to send message");
+        }
+
+        contactForm.reset();
+        if (statusEl) statusEl.textContent = "Message sent. Thank you!";
+      } catch (err) {
+        if (statusEl) {
+          statusEl.textContent =
+            err instanceof Error ? err.message : "Failed to send message";
+        }
+      }
+    });
+  }
+})();
